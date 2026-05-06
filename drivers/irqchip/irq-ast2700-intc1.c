@@ -7,10 +7,10 @@
 
 #include <linux/bitops.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
-#include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -48,13 +48,10 @@ static void aspeed_intc1_disable_int(struct aspeed_intc1 *intc1)
 		writel(0, intc1->base + INTC1_IER + (INTC1_BANK_SIZE * i));
 }
 
-static void aspeed_intc1_irq_handler(struct irq_desc *desc)
+static irqreturn_t aspeed_intc1_irq_handler(int irq, void *dev_id)
 {
-	struct aspeed_intc1 *intc1 = irq_desc_get_handler_data(desc);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct aspeed_intc1 *intc1 = dev_id;
 	unsigned long bit, status;
-
-	chained_irq_enter(chip, desc);
 
 	for (int bank = 0; bank < INTC1_BANK_NUM; bank++) {
 		status = readl(intc1->base + INTC1_ISR + (INTC1_BANK_SIZE * bank));
@@ -67,7 +64,7 @@ static void aspeed_intc1_irq_handler(struct irq_desc *desc)
 		}
 	}
 
-	chained_irq_exit(chip, desc);
+	return IRQ_HANDLED;
 }
 
 static void aspeed_intc1_irq_mask(struct irq_data *data)
@@ -207,7 +204,7 @@ static void aspeed_intc1_request_interrupts(struct aspeed_intc1 *intc1)
 
 		for (u32 k = 0; k < r->count; k++) {
 			struct of_phandle_args parent_irq;
-			int irq;
+			int irq, ret;
 
 			parent_irq.np = to_of_node(r->upstream.fwnode);
 			parent_irq.args_count = 1;
@@ -218,8 +215,14 @@ static void aspeed_intc1_request_interrupts(struct aspeed_intc1 *intc1)
 			if (!irq)
 				continue;
 
-			irq_set_chained_handler_and_data(irq,
-							 aspeed_intc1_irq_handler, intc1);
+			ret = devm_request_irq(intc1->dev, irq,
+					       aspeed_intc1_irq_handler,
+					       IRQF_NO_THREAD,
+					       dev_name(intc1->dev), intc1);
+			if (ret)
+				dev_warn(intc1->dev,
+					 "Failed to request irq %d: %d\n",
+					 irq, ret);
 		}
 	}
 }
