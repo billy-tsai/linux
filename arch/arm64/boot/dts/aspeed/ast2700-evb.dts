@@ -7,22 +7,87 @@
 
 /dts-v1/;
 #include "aspeed-g7-a35.dtsi"
-
+#include <dt-bindings/net/ti-dp83867.h>
 / {
 	model = "AST2700 EVB";
 	compatible = "aspeed,ast2700-evb", "aspeed,ast2700";
 
 	aliases {
-		serial0 = &uart12;	/* console port */
+		serial12 = &uart12;	/* console port */
 	};
 
 	chosen {
-		stdout-path = "serial0:115200n8";
+		stdout-path = "serial12:115200n8";
 	};
 
 	memory@400000000 {
 		device_type = "memory";
 		reg = <0x4 0x00000000 0x0 0x40000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ssp_memory: ssp-memory@42c000000 {
+			reg = <0x4 0x2c000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		tsp_memory: tsp-memory@42e000000 {
+			reg = <0x4 0x2e000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		ipc_ssp_share: ipc-ssp-share@431080000 {
+			reg = <0x4 0x31080000 0x0 0x800000>;
+			no-map;
+		};
+
+		ipc_bootmcu_share: ipc-bootmcu-share@431880000 {
+			reg = <0x4 0x31880000 0x0 0x2b0000>;
+			no-map;
+		};
+
+		vbios_base0: vbios-base0@431bb0000 {
+			reg = <0x4 0x31bb0000 0x0 0x10000>;
+			no-map;
+		};
+
+		vbios_base1: vbios-base1@431bc0000 {
+			reg = <0x4 0x31bc0000 0x0 0x10000>;
+			no-map;
+		};
+
+		video_engine_memory0: video0 {
+			size = <0x0 0x02000000>;
+			alignment = <0x0 0x00010000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+
+		video_engine_memory1: video1 {
+			size = <0x0 0x02000000>;
+			alignment = <0x0 0x00010000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+
+
+		rvas_memory0: rvas0{
+			size = <0x0 0x04000000>;
+			alignment = <0x0 0x01000000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+
+		rvas_memory1: rvas1{
+			size = <0x0 0x04000000>;
+			alignment = <0x0 0x01000000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};		
 	};
 };
 
@@ -62,4 +127,49 @@
 
 &uart12 {
 	status = "okay";
+};
+
+&mdio0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ethphy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0>;
+	};
+};
+
+&mdio1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ethphy1: ethernet-phy@0 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0>;
+		/* For DDR5 board */
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+	};
+};
+
+&mac0 {
+	status = "okay";
+
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethphy0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rgmii0_default>;
+};
+
+&mac1 {
+	status = "okay";
+
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethphy1>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rgmii1_default>;
 };
